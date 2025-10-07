@@ -10,9 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/v1/user")
@@ -24,15 +22,18 @@ public class UserController {
 
     // CREATE
     @PostMapping
-    @Operation(summary = "Salva um usuário", description = "Salva um usuário")
+    @Operation(summary = "Salva um usuário", description = "Cria e salva um novo usuário.")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Usuário salvo com sucesso!"),
             @ApiResponse(responseCode = "400", description = "Os dados do usuário estão incorretos.")
     })
-    public ResponseEntity<UserDTO> save(@Valid @RequestBody UserDTO usuarioDTO) {
-        if (usuarioDTO.getNome() == null || usuarioDTO.getEmail() == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
+    public ResponseEntity<?> save(@Valid @RequestBody UserDTO usuarioDTO) {
+        if (usuarioDTO.getNome() == null || usuarioDTO.getEmail() == null ||
+                usuarioDTO.getNome().isBlank() || usuarioDTO.getEmail().isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("erro", "Nome e e-mail são obrigatórios."));
         }
+
         usuarioDTO.setId(nextId++);
         usuarios.add(usuarioDTO);
         return ResponseEntity.status(HttpStatus.CREATED).body(usuarioDTO);
@@ -40,38 +41,74 @@ public class UserController {
 
     // READ ALL
     @GetMapping
-    @Operation(summary = "Lista todos os usuários", description = "Retorna a lista de usuários")
-    public List<UserDTO> findAll() {
-        return usuarios;
+    @Operation(summary = "Lista todos os usuários", description = "Retorna todos os usuários cadastrados.")
+    public ResponseEntity<?> findAll() {
+        if (usuarios.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("mensagem", "Nenhum usuário encontrado."));
+        }
+        return ResponseEntity.ok(usuarios);
     }
 
     // READ ONE
     @GetMapping("/{id}")
-    @Operation(summary = "Busca usuário por ID", description = "Retorna um usuário específico pelo ID")
-    public ResponseEntity<UserDTO> findById(@PathVariable Integer id) {
-        Optional<UserDTO> user = usuarios.stream().filter(u -> u.getId().equals(id)).findFirst();
-        return user.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    @Operation(summary = "Busca usuário por ID", description = "Retorna um usuário específico pelo ID.")
+    public ResponseEntity<?> findById(@PathVariable Integer id) {
+        Optional<UserDTO> user = usuarios.stream()
+                .filter(u -> u.getId().equals(id))
+                .findFirst();
+
+        return user.<ResponseEntity<?>>map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("erro", "Usuário com ID " + id + " não encontrado.")));
     }
 
     // UPDATE
     @PutMapping("/{id}")
-    @Operation(summary = "Atualiza um usuário", description = "Atualiza os dados de um usuário existente")
-    public ResponseEntity<UserDTO> update(@PathVariable Integer id, @RequestBody UserDTO updatedUser) {
-        for (UserDTO user : usuarios) {
-            if (user.getId().equals(id)) {
-                user.setNome(updatedUser.getNome());
-                user.setEmail(updatedUser.getEmail());
-                return ResponseEntity.ok(user);
-            }
+    @Operation(summary = "Atualiza um usuário", description = "Atualiza os dados de um usuário existente.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Usuário atualizado com sucesso!"),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado.")
+    })
+    public ResponseEntity<?> update(@PathVariable Integer id, @Valid @RequestBody UserDTO updatedUser) {
+        Optional<UserDTO> existingUserOpt = usuarios.stream()
+                .filter(u -> u.getId().equals(id))
+                .findFirst();
+
+        if (existingUserOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("erro", "Usuário com ID " + id + " não encontrado."));
         }
-        return ResponseEntity.notFound().build();
+
+        if (updatedUser.getNome() == null || updatedUser.getNome().isBlank() ||
+                updatedUser.getEmail() == null || updatedUser.getEmail().isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("erro", "Nome e e-mail são obrigatórios para atualização."));
+        }
+
+        UserDTO existingUser = existingUserOpt.get();
+        existingUser.setNome(updatedUser.getNome());
+        existingUser.setEmail(updatedUser.getEmail());
+
+        return ResponseEntity.ok(existingUser);
     }
 
     // DELETE
     @DeleteMapping("/{id}")
-    @Operation(summary = "Exclui um usuário", description = "Remove um usuário pelo ID")
-    public ResponseEntity<Void> delete(@PathVariable Integer id) {
+    @Operation(summary = "Exclui um usuário", description = "Remove um usuário pelo ID.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Usuário excluído com sucesso!"),
+            @ApiResponse(responseCode = "404", description = "Usuário não encontrado.")
+    })
+    public ResponseEntity<?> delete(@PathVariable Integer id) {
         boolean removed = usuarios.removeIf(u -> u.getId().equals(id));
-        return removed ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+
+        if (removed) {
+            return ResponseEntity.ok(Map.of("mensagem", "Usuário com ID " + id + " foi excluído com sucesso."));
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("erro", "Usuário com ID " + id + " não encontrado para exclusão."));
+        }
     }
 }
+
