@@ -1,125 +1,55 @@
 package com.example.projeto.controller;
 
 import com.example.projeto.dto.CupomDTO;
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.http.HttpStatus;
+import com.example.projeto.exception.BusinessException;
+import com.example.projeto.service.CupomService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDate;
-import java.util.*;
+import java.util.List;
 
 @RestController
-@RequestMapping("/api/v1/cupom")
-@Tag(name = "Cupons", description = "CRUD de cupons/descontos com regras e validações")
+@RequestMapping("/api/cupons")
+@RequiredArgsConstructor
 public class CupomController {
 
-    private final List<CupomDTO> cupons = new ArrayList<>();
-    private int nextId = 1;
+    private final CupomService cupomService;
 
-    // CREATE
-    @PostMapping
-    @Operation(summary = "Cria um novo cupom", description = "Adiciona um cupom com valor, validade e mínimo de compra")
-    public ResponseEntity<?> create(@RequestBody CupomDTO cupom) {
-        if (cupom.getCodigo() == null || cupom.getCodigo().isBlank() ||
-                cupom.getValor() == null || cupom.getValor() <= 0 ||
-                cupom.getValidade() == null ||
-                cupom.getMinimoCompra() == null || cupom.getMinimoCompra() < 0) {
-
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("erro", "Todos os campos obrigatórios devem ser preenchidos corretamente."));
-        }
-
-        cupom.setId(nextId++);
-        cupom.setAtivo(cupom.getValidade().isAfter(LocalDate.now()));
-        cupons.add(cupom);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(cupom);
-    }
-
-    // READ ALL - apenas cupons ativos
     @GetMapping
-    @Operation(summary = "Lista cupons ativos", description = "Retorna apenas os cupons válidos")
-    public ResponseEntity<?> findAll() {
-        List<CupomDTO> ativos = cupons.stream()
-                .filter(c -> c.isAtivo() && c.getValidade().isAfter(LocalDate.now()))
-                .toList();
-
-        if (ativos.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("mensagem", "Nenhum cupom ativo encontrado."));
-        }
-
-        return ResponseEntity.ok(ativos);
+    public ResponseEntity<List<CupomDTO>> listarAtivos() {
+        return ResponseEntity.ok(cupomService.findAllAtivos());
     }
 
-    // READ BY ID
     @GetMapping("/{id}")
-    @Operation(summary = "Busca cupom por ID", description = "Retorna um cupom específico pelo ID")
-    public ResponseEntity<?> findById(@PathVariable Integer id) {
-        Optional<CupomDTO> cupom = cupons.stream()
-                .filter(c -> c.getId().equals(id))
-                .findFirst();
-
-        return cupom.<ResponseEntity<?>>map(ResponseEntity::ok)
-                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("erro", "Cupom com ID " + id + " não encontrado.")));
+    public ResponseEntity<CupomDTO> buscarPorId(@PathVariable Integer id) {
+        return cupomService.findById(id)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new BusinessException("CUP001", "Cupom não encontrado."));
     }
 
-    // UPDATE
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping
+    public ResponseEntity<CupomDTO> criar(@RequestBody CupomDTO dto) {
+        return ResponseEntity.ok(cupomService.create(dto));
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
-    @Operation(summary = "Atualiza cupom", description = "Edita regras ou datas do cupom")
-    public ResponseEntity<?> update(@PathVariable Integer id, @RequestBody CupomDTO updated) {
-        Optional<CupomDTO> cupomOpt = cupons.stream()
-                .filter(c -> c.getId().equals(id))
-                .findFirst();
-
-        if (cupomOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("erro", "Cupom com ID " + id + " não encontrado."));
-        }
-
-        CupomDTO cupom = cupomOpt.get();
-
-        if (updated.getCodigo() != null && !updated.getCodigo().isBlank())
-            cupom.setCodigo(updated.getCodigo());
-
-        if (updated.getValor() != null && updated.getValor() > 0)
-            cupom.setValor(updated.getValor());
-
-        if (updated.getMinimoCompra() != null && updated.getMinimoCompra() >= 0)
-            cupom.setMinimoCompra(updated.getMinimoCompra());
-
-        if (updated.getValidade() != null)
-            cupom.setValidade(updated.getValidade());
-
-        // Atualiza status ativo
-        cupom.setAtivo(cupom.getValidade().isAfter(LocalDate.now()));
-
-        return ResponseEntity.ok(cupom);
+    public ResponseEntity<CupomDTO> atualizar(@PathVariable Integer id, @RequestBody CupomDTO dto) {
+        return cupomService.update(id, dto)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new BusinessException("CUP002", "Erro ao atualizar cupom."));
     }
 
-    // DELETE - remover cupons expirados ou inválidos
+    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
-    @Operation(summary = "Remove cupom", description = "Exclui cupom expirado ou inválido")
-    public ResponseEntity<?> delete(@PathVariable Integer id) {
-        Optional<CupomDTO> cupomOpt = cupons.stream()
-                .filter(c -> c.getId().equals(id))
-                .findFirst();
-
-        if (cupomOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("erro", "Cupom com ID " + id + " não encontrado."));
+    public ResponseEntity<String> deletar(@PathVariable Integer id) {
+        boolean removido = cupomService.delete(id);
+        if (!removido) {
+            throw new BusinessException("CUP003", "Cupom ainda válido, não pode ser removido.");
         }
-
-        CupomDTO cupom = cupomOpt.get();
-        if (cupom.getValidade().isAfter(LocalDate.now())) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("erro", "Não é possível remover um cupom válido."));
-        }
-
-        cupons.remove(cupom);
-        return ResponseEntity.ok(Map.of("mensagem", "Cupom removido com sucesso."));
+        return ResponseEntity.ok("Cupom removido com sucesso.");
     }
 }
