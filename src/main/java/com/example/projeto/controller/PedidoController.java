@@ -1,12 +1,14 @@
 package com.example.projeto.controller;
 
 import com.example.projeto.exception.BusinessException;
+import com.example.projeto.model.Cupom;
 import com.example.projeto.model.Pedido;
 import com.example.projeto.model.Produto;
 import com.example.projeto.model.User;
 import com.example.projeto.service.PedidoService;
 import com.example.projeto.service.ProdutoService;
 import com.example.projeto.service.UserService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,16 +26,19 @@ public class PedidoController {
     private final ProdutoService produtoService;
     private final UserService userService;
 
+    @Operation(summary = "Lista todos os pedidos")
     @GetMapping
     public ResponseEntity<List<Pedido>> listar() {
         return ResponseEntity.ok(pedidoService.findAll());
     }
 
+    @Operation(summary = "Busca pedido por ID")
     @GetMapping("/{id}")
     public ResponseEntity<Pedido> buscarPorId(@PathVariable Integer id) {
         return ResponseEntity.ok(pedidoService.findById(id));
     }
 
+    @Operation(summary = "Cria um novo pedido")
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
     @PostMapping
     public ResponseEntity<Pedido> criar(@RequestBody Pedido pedido) {
@@ -54,15 +59,22 @@ public class PedidoController {
         pedido.setData(LocalDate.now());
         pedido.setStatus("EM_ANDAMENTO");
 
+        if (pedido.getCupom() != null && pedido.getCupom().getId() != null) {
+            Cupom cupomValido = pedidoService.findCupomById(pedido.getCupom().getId());
+            pedido.setCupom(cupomValido);
+        }
+
         return ResponseEntity.ok(pedidoService.save(pedido));
     }
 
+    @Operation(summary = "Atualiza um pedido existente")
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<Pedido> atualizar(@PathVariable Integer id, @RequestBody Pedido pedido) {
         return ResponseEntity.ok(pedidoService.update(id, pedido));
     }
 
+    @Operation(summary = "Deleta um pedido existente")
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletar(@PathVariable Integer id) {

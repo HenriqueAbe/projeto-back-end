@@ -1,6 +1,8 @@
 package com.example.projeto.service;
 
+import com.example.projeto.model.Cupom;
 import com.example.projeto.model.Pedido;
+import com.example.projeto.repository.CupomRepository;
 import com.example.projeto.repository.PedidoRepository;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,13 @@ import java.util.List;
 public class PedidoService {
 
     private final PedidoRepository pedidoRepository;
+
+    private final CupomRepository cupomRepository;
+
+    public Cupom findCupomById(Integer id) {
+        return cupomRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Cupom com ID " + id + " não encontrado."));
+    }
 
     public List<Pedido> findAll() {
         return pedidoRepository.findAll();

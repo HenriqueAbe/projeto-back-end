@@ -2,8 +2,10 @@ package com.example.projeto.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.ToString;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @Data
 @Entity
@@ -28,7 +30,9 @@ public class Cupom {
 
     private boolean ativo;
 
-    public Cupom() {}
+    @OneToMany(mappedBy = "cupom")
+    @ToString.Exclude
+    private List<Pedido> pedidos;
 
     public Cupom(String codigo, Double valor, LocalDate validade, Double minimoCompra) {
         this.codigo = codigo;

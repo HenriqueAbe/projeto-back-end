@@ -5,6 +5,7 @@ import com.example.projeto.model.Categoria;
 import com.example.projeto.model.Produto;
 import com.example.projeto.service.CategoriaService;
 import com.example.projeto.service.ProdutoService;
+import io.swagger.v3.oas.annotations.Operation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -20,16 +21,19 @@ public class ProdutoController {
     private final ProdutoService produtoService;
     private final CategoriaService categoriaService;
 
+    @Operation(summary = "Lista todos os produtos")
     @GetMapping
     public ResponseEntity<List<Produto>> listar() {
         return ResponseEntity.ok(produtoService.findAll());
     }
 
+    @Operation(summary = "Busca produto por ID")
     @GetMapping("/{id}")
     public ResponseEntity<Produto> buscarPorId(@PathVariable Integer id) {
         return ResponseEntity.ok(produtoService.findById(id));
     }
 
+    @Operation(summary = "Cria um novo produto")
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<Produto> criar(@RequestBody Produto produto) {
@@ -43,12 +47,14 @@ public class ProdutoController {
         return ResponseEntity.ok(produtoService.save(produto));
     }
 
+    @Operation(summary = "Atualiza um produto existente")
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<Produto> atualizar(@PathVariable Integer id, @RequestBody Produto produto) {
         return ResponseEntity.ok(produtoService.update(id, produto));
     }
 
+    @Operation(summary = "Deleta um produto existente")
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletar(@PathVariable Integer id) {
