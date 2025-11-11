@@ -1,6 +1,7 @@
 package com.example.projeto.model;
 
 import com.example.projeto.security.Role;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.Data;
@@ -32,6 +33,5 @@ public class User {
 
     @OneToMany(mappedBy = "cliente")
     @ToString.Exclude
-    @JsonManagedReference
     private List<Pedido> pedidos;
 }

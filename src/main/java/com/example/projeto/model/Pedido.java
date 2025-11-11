@@ -1,6 +1,7 @@
 package com.example.projeto.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.ToString;
@@ -31,7 +32,6 @@ public class Pedido {
     @ManyToOne
     @JoinColumn(name = "user_id", nullable = false)
     @ToString.Exclude
-    @JsonBackReference
     private User cliente;
 
     @ManyToMany
